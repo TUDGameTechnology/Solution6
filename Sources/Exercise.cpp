@@ -176,6 +176,7 @@ namespace {
 		Graphics::begin();
 		Graphics::clear(Graphics::ClearColorFlag | Graphics::ClearDepthFlag, 0xff000000, 1000.0f);
 		
+
 		program->set();
 
 		/*
@@ -193,7 +194,7 @@ namespace {
 
 		V = mat4::lookAt(eye, globe, vec3(0, 1.0, 0));
 		//V = mat4::lookAt(eye, globe, vec3(0, 1, 0)); //rotation test, can be deleted
-		P = mat4::Perspective(40.0, (float)width / (float)height, 0.1f, 100);
+		P = mat4::Perspective(40.0, (float)width / (float)height, 0.1f, 20);
 		Graphics::setMatrix(vLocation, V);
 		Graphics::setMatrix(pLocation, P);
 
@@ -337,7 +338,7 @@ namespace {
 		modeLocation = program->getConstantLocation("mode");
 		//@@TODO: Remove light pos
 		//@@TODO: Actually add normal map texture
-		objects[0] = new MeshObject("tiger.obj", "tiger-atlas.jpg", "171_norm.jpg", structure, 1.0f);
+		objects[0] = new MeshObject("ball.obj", "176.jpg", "176_norm.jpg", structure, 1.0f);
 		objects[0]->M = mat4::Translation(globe.x(), globe.y(), globe.z());
 		//objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, 0.3f);
 		//objects[1]->M = mat4::Translation(light.x(), light.y(), light.z());
@@ -345,7 +346,7 @@ namespace {
 		Graphics::setRenderState(DepthTest, true);
 		Graphics::setRenderState(DepthTestCompare, ZCompareLess);
 
-		// Graphics::setRenderState(BackfaceCulling, false);
+		Graphics::setRenderState(DepthWrite, true);
 
 		Graphics::setTextureAddressing(tex, Kore::U, Repeat);
 		Graphics::setTextureAddressing(tex, Kore::V, Repeat);

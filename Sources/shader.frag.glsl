@@ -22,7 +22,7 @@ void kore(){
 	// Light emission properties
 	// You probably want to put them as uniforms
 	vec3 LightColor = vec3(1,1,1);
-	float LightPower = 40.0;
+	float LightPower = 5.0;
 	
 	// Material properties
 	vec3 MaterialDiffuseColor = texture2D(tex, texCoord).rgb;
@@ -31,7 +31,7 @@ void kore(){
 
 	// Local normal, in tangent space. V tex coordinate is inverted because normal map is in TGA (not in DDS) for better quality
 	//@@TODO: Check for this
-	vec3 TextureNormal_tangentspace = normalize(texture2D(normalMap, vec2(texCoord.x,-texCoord.y)).rgb*2.0 - 1.0);
+	vec3 TextureNormal_tangentspace = normalize(texture2D(normalMap, vec2(texCoord.x,texCoord.y)).rgb*2.0 - 1.0);
 	
 	// Distance to the light
 	float distance = length( light - position );
@@ -73,5 +73,6 @@ void kore(){
 		// Specular : reflective highlight, like a mirror
 		MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5.0) / (distance*distance);
 
-	gl_FragColor = vec4(MaterialDiffuseColor, 1);
+	//gl_FragColor = vec4(MaterialDiffuseColor, 1);
+	gl_FragColor = vec4(color, 1);
 }
