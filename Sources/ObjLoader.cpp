@@ -165,6 +165,7 @@ namespace {
 			}
 			mesh->curIndex += 3;
 			mesh->numFaces += 1;
+			mesh->numIndices += 3;
 		}
 	}
 
