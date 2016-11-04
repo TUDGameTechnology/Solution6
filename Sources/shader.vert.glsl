@@ -17,7 +17,7 @@ uniform vec3 light;
 uniform vec3 eye;
 
 //@@TODO: Check with Robert 
-highp mat3 transpose(in highp mat3 inMatrix) {
+highp mat3 mytranspose(in highp mat3 inMatrix) {
     highp vec3 i0 = inMatrix[0];
     highp vec3 i1 = inMatrix[1];
     highp vec3 i2 = inMatrix[2];
@@ -35,7 +35,7 @@ void kore() {
 
 	// Output position of the vertex, in clip space : MVP * position
 	mat4 MVP = P * V * M;
-	vec4 newPos = MVP * vec4(pos.x, pos.y, pos.z, 1.0);
+	vec4 newPos = MVP * vec4(pos.xyz, 1.0);
 	gl_Position = newPos;
 
 	position = newPos.xyz / newPos.w;
@@ -71,7 +71,7 @@ void kore() {
 		vertexNormal_cameraspace	
 	);
 	
-	mat3 TBN = transpose(tempTBN); // You can use dot products instead of building this matrix and transposing it. See References for details.
+	mat3 TBN = mytranspose(tempTBN); // You can use dot products instead of building this matrix and transposing it. See References for details.
 
 	LightDirection_tangentspace = TBN * LightDirection_cameraspace;
 	EyeDirection_tangentspace =  TBN * EyeDirection_cameraspace; 

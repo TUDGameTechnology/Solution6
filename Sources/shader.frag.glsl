@@ -22,12 +22,12 @@ void kore(){
 	// Light emission properties
 	// You probably want to put them as uniforms
 	vec3 LightColor = vec3(1,1,1);
-	float LightPower = 5.0;
+	float LightPower = 10.0;
 	
 	// Material properties
 	vec3 MaterialDiffuseColor = texture2D(tex, texCoord).rgb;
 	vec3 MaterialAmbientColor = vec3(0.1,0.1,0.1) * MaterialDiffuseColor;
-	vec3 MaterialSpecularColor = texture2D(tex, texCoord ).rgb * 0.3;
+	vec3 MaterialSpecularColor = texture2D(tex, texCoord ).rgb; // * 0.3;
 
 	// Local normal, in tangent space. V tex coordinate is inverted because normal map is in TGA (not in DDS) for better quality
 	//@@TODO: Check for this
@@ -37,8 +37,8 @@ void kore(){
 	float distance = length( light - position );
 	 
 	// Normal of the computed fragment, in camera space
+	// vec3 n = normal; // TextureNormal_tangentspace;
 	vec3 n = TextureNormal_tangentspace;
-
 	
 	// Direction of the light (from the fragment to the light)
 	vec3 l = normalize(LightDirection_tangentspace);
@@ -47,11 +47,7 @@ void kore(){
 	//  - light is at the vertical of the triangle -> 1
 	//  - light is perpendicular to the triangle -> 0
 	//  - light is behind the triangle -> 0
-	//@@TODO: Why no clamp?
-	// float cosTheta = clamp( dot( n,l ), 0,1 );
-	float cosTheta = dot( n,l );
-	if (cosTheta < 0.0) cosTheta = 0.0;
-	if (cosTheta > 1.0) cosTheta = 1.0;
+	float cosTheta = clamp( dot( n,l ), 0.0, 1.0 );
 
 	
 	// Eye vector (towards the camera)
@@ -64,15 +60,23 @@ void kore(){
 	//  - Looking elsewhere -> < 1
 	float cosAlpha = clamp( dot( E,R ), 0.0,1.0);
 
-	
+
+	//@@TODO: For some reason, cosTheta is not 0 when the light is behind the surface	
+	vec3 Diffuse = MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance*distance);
+	vec3 Specular = MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5.0) / (distance*distance);
 	vec3 color = 
 		// Ambient : simulates indirect lighting
 		MaterialAmbientColor +
 		// Diffuse : "color" of the object
-		MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance*distance) +
+		Diffuse + 
 		// Specular : reflective highlight, like a mirror
-		MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5.0) / (distance*distance);
+		Specular;
 
+	// gl_FragColor = vec4(MaterialAmbientColor, 1.0);
+	
 	//gl_FragColor = vec4(MaterialDiffuseColor, 1);
-	gl_FragColor = vec4(color, 1);
+	//gl_FragColor = vec4(texCoord, 0.0, 1.0);
+	//gl_FragColor = vec4(Diffuse, 1.0);
+	//gl_FragColor = vec4(Specular, 1.0);
+	gl_FragColor = vec4(color, 1.0);
 }

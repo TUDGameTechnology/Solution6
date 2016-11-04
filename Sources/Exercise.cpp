@@ -79,13 +79,13 @@ public:
 			vec3 bitangent = (deltaPos2 * deltaUV1.x() - deltaPos1 * deltaUV2.x())*r;
 
 			// Write them out
-		/*	vData1[8] = vData2[8] = vData3[8] = tangent.x();
+			vData1[8] = vData2[8] = vData3[8] = tangent.x();
 			vData1[9] = vData2[9] = vData3[9] = tangent.y();
 			vData1[10] = vData2[10] = vData3[10] = tangent.z();
 			
 			vData1[11] = vData2[11] = vData3[11] = bitangent.x();
 			vData1[12] = vData2[12] = vData3[12] = bitangent.y();
-			vData1[13] = vData2[13] = vData3[13] = bitangent.z(); */
+			vData1[13] = vData2[13] = vData3[13] = bitangent.z(); 
 		} 
 
 		vertexBuffer->unlock();
@@ -141,7 +141,9 @@ namespace {
 	vec3 eye = vec3(0, 0, -3);
 	vec3 globe = vec3(0, 0.0, 0.0);
 	//vec3 globe = vec3(0.7f, 1.2f, -0.2f);
-	vec3 light = vec3(0, 1.95f, -3.0f);
+	vec3 light = vec3(0, 0.0f, 3.0f);
+	float lightRotationRate = 1.0f;
+	vec3 lightStart = vec3(0, 1.95f, 3.0f);
 	
 	bool left, right, up, down, forward, backward;
 	int mode = 0;
@@ -152,6 +154,10 @@ namespace {
 	void update() {
 		float t = (float)(System::time() - startTime);
 		Kore::Audio::update();
+
+		// Animate the light point
+		mat3 rotation = mat3::RotationY(t * lightRotationRate);
+		light = rotation * lightStart;
 
 		const float speed = 0.05f;
 		if (left) {
@@ -194,7 +200,7 @@ namespace {
 
 		V = mat4::lookAt(eye, globe, vec3(0, 1.0, 0));
 		//V = mat4::lookAt(eye, globe, vec3(0, 1, 0)); //rotation test, can be deleted
-		P = mat4::Perspective(40.0, (float)width / (float)height, 0.1f, 20);
+		P = mat4::Perspective(90.0, (float)width / (float)height, 0.1f, 100);
 		Graphics::setMatrix(vLocation, V);
 		Graphics::setMatrix(pLocation, P);
 
@@ -327,7 +333,7 @@ namespace {
 		program->link(structure);
 
 		tex = program->getTextureUnit("tex");
-		normalMapTex = program->getTextureUnit("normalMapTex");
+		normalMapTex = program->getTextureUnit("normalMap");
 		pLocation = program->getConstantLocation("P");
 		vLocation = program->getConstantLocation("V");
 		mLocation = program->getConstantLocation("M");
@@ -338,13 +344,15 @@ namespace {
 		modeLocation = program->getConstantLocation("mode");
 		//@@TODO: Remove light pos
 		//@@TODO: Actually add normal map texture
-		objects[0] = new MeshObject("ball.obj", "176.jpg", "176_norm.jpg", structure, 1.0f);
+		objects[0] = new MeshObject("box.obj", "199.jpg", "199_norm.jpg", structure, 1.0f);
 		objects[0]->M = mat4::Translation(globe.x(), globe.y(), globe.z());
 		//objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, 0.3f);
 		//objects[1]->M = mat4::Translation(light.x(), light.y(), light.z());
 
 		Graphics::setRenderState(DepthTest, true);
 		Graphics::setRenderState(DepthTestCompare, ZCompareLess);
+
+		Graphics::setRenderState(BackfaceCulling, true);
 
 		Graphics::setRenderState(DepthWrite, true);
 
