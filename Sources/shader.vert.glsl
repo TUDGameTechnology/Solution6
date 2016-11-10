@@ -1,21 +1,31 @@
+// Position in model space
 attribute vec3 pos;
+// Texture coordinate
 attribute vec2 tex;
+// Normal, tangent, bitangent
 attribute vec3 nor;
 attribute vec3 tangent;
 attribute vec3 bitangent;
-varying vec3 position;
-varying vec2 texCoord;
-varying vec3 normal;
 
-varying vec3 LightDirection_tangentspace;
-varying vec3 EyeDirection_tangentspace;
-varying vec3 Position_worldspace;
-
+// Projection, view and model matrices
 uniform mat4 P;
 uniform mat4 V;
 uniform mat4 M;
+
+// Light position in world space
 uniform vec3 light;
+// Camera position in world space
 uniform vec3 eye;
+
+// Position in world space
+varying vec3 position;
+
+// Texture coordinate
+varying vec2 texCoord;
+
+varying vec3 light_tangentspace;
+varying vec3 eye_tangentspace;
+
 
 highp mat3 mytranspose(in highp mat3 inMatrix) {
 
@@ -36,7 +46,7 @@ void kore() {
 	gl_Position =  MVP * vec4(pos,1);
 	
 	// Position of the vertex, in worldspace : M * position
-	Position_worldspace = (M * vec4(pos,1)).xyz;
+	position = (M * vec4(pos,1)).xyz;
 	
 	// Vector that goes from the vertex to the camera, in camera space.
 	// In camera space, the camera is at the origin (0,0,0).
@@ -62,6 +72,6 @@ void kore() {
 		vertexNormal_cameraspace	
 	)); // You can use dot products instead of building this matrix and transposing it. See References for details.
 
-	LightDirection_tangentspace = TBN * LightDirection_cameraspace;
-	EyeDirection_tangentspace =  TBN * EyeDirection_cameraspace;
+	light_tangentspace = TBN * LightDirection_cameraspace;
+	eye_tangentspace =  TBN * EyeDirection_cameraspace;
 }
