@@ -9,45 +9,42 @@
 #include <Kore/Graphics/Image.h>
 #include <Kore/Graphics/Graphics.h>
 #include "ObjLoader.h"
-#include <algorithm>
-#include <iostream>
 
 using namespace Kore;
 
 class MeshObject {
 public:
+
 	MeshObject(const char* meshFile, const char* textureFile, const char* normalMapFile, const VertexStructure& structure, float scale = 1.0f) {
 		mesh = loadObj(meshFile);
-		// @@TODO: Why readable?
-		image = new Texture(textureFile, true);
-		normalMap = new Texture(normalMapFile, true);
+		image = new Texture(textureFile);
+		normalMap = new Texture(normalMapFile);
 
 		vertexBuffer = new VertexBuffer(mesh->numVertices, structure, 0);
 		float* vertices = vertexBuffer->lock();
 		int stride = 3 + 2 + 3 + 3 + 3;
 		int strideInFile = 3 + 2 + 3;
 		for (int i = 0; i < mesh->numVertices; ++i) {
-			vertices[i * stride + 0] = mesh->vertices[i * strideInFile + 0] * scale;
-			vertices[i * stride + 1] = mesh->vertices[i * strideInFile + 1] * scale;
-			vertices[i * stride + 2] = mesh->vertices[i * strideInFile + 2] * scale;
-			vertices[i * stride + 3] = mesh->vertices[i * strideInFile + 3];
-			vertices[i * stride + 4] = 1.0f - mesh->vertices[i * strideInFile + 4];
-			vertices[i * stride + 5] = mesh->vertices[i * strideInFile + 5];
-			vertices[i * stride + 6] = mesh->vertices[i * strideInFile + 6];
-			vertices[i * stride + 7] = mesh->vertices[i * strideInFile + 7];
+			float* v = &vertices[i * stride];
+			float* meshV = &mesh->vertices[i * strideInFile];
+			v[0] = meshV[0] * scale;
+			v[1] = meshV[1] * scale;
+			v[2] = meshV[2] * scale;
+			v[3] = meshV[3];
+			v[4] = 1.0f - meshV[4];
+			v[5] = meshV[5];
+			v[6] = meshV[6];
+			v[7] = meshV[7];
 		}
-	//	vertexBuffer->unlock();
 
 		indexBuffer = new IndexBuffer(mesh->numFaces * 3);
 		int* indices = indexBuffer->lock();
 		for (int i = 0; i < mesh->numFaces * 3; i++) {
 			indices[i] = mesh->indices[i];
 		}
-	//	indexBuffer->unlock();
 
 		// Calculate the tangent and bitangent vectors
 		// We don't index them here, we just copy them for each vertex
-		// @@TODO: There seems to be a one-off problem somewhere
 		for (int i = 0; i < mesh->numIndices / 3; i++)
 		{
 			int index1 = indices[i * 3 + 0];
@@ -75,8 +72,22 @@ public:
 			vec2 deltaUV2 = uv3 - uv1;
 
 			float r = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV1.y() * deltaUV2.x());
+			vec3 normal(vData1[5], vData1[6], vData1[7]);
 			vec3 tangent = (deltaPos1 * deltaUV2.y() - deltaPos2 * deltaUV1.y())*r;
 			vec3 bitangent = (deltaPos2 * deltaUV1.x() - deltaPos1 * deltaUV2.x())*r;
+
+			// Don't forget to normalize them
+			tangent = tangent.normalize();
+			bitangent = bitangent.normalize();
+
+			// Gram-Schmidt orthogonalization
+			tangent = tangent - normal * normal.dot(tangent);
+
+			// Calculate handedness
+			if (normal.cross(tangent).dot(bitangent) < 0.0f)
+			{
+				tangent = tangent * -1.0f;
+			}
 
 			// Write them out
 			vData1[8] = vData2[8] = vData3[8] = tangent.x();
@@ -102,7 +113,9 @@ public:
 		Graphics::drawIndexedVertices();
 	}
 
+	// Model matrix of this object
 	mat4 M;
+
 private:
 	VertexBuffer* vertexBuffer;
 	IndexBuffer* indexBuffer;
@@ -121,35 +134,40 @@ namespace {
 
 	// null terminated array of MeshObject pointers
 	MeshObject* objects[] = { nullptr, nullptr, nullptr, nullptr, nullptr };
+	MeshObject* lightMesh = nullptr;
 
 	// The view projection matrix aka the camera
 	mat4 P;
 	mat4 V;
 
-	// uniform locations - add more as you see fit
+	// Texture units
 	TextureUnit tex;
 	TextureUnit normalMapTex;
+
+	// Uniform locations - add more as you see fit
 	ConstantLocation pLocation;
 	ConstantLocation vLocation;
 	ConstantLocation mLocation;
 	ConstantLocation lightLocation;
 	ConstantLocation eyeLocation;
-	ConstantLocation specLocation;
-	ConstantLocation roughnessLocation;
-	ConstantLocation modeLocation;
 
+	// Position of the camera in world space
 	vec3 eye = vec3(0, 0, -3);
-	vec3 globe = vec3(0, 0.0, 0.0);
-	//vec3 globe = vec3(0.7f, 1.2f, -0.2f);
-	vec3 light = vec3(0, 0.0f, 3.0f);
-	float lightRotationRate = 1.0f;
+
+	// Position of the mesh to use for normal mapping
+	vec3 normalMapModel = vec3(0, 0.0, 0.0);
+
+	// Initial position of the light
 	vec3 lightStart = vec3(0, 1.95f, 3.0f);
+
+	// Position of the light in world space
+	vec3 light = lightStart;
+
+	// Rotation rate of the light
+	float lightRotationRate = 1.0f;
+
 	
 	bool left, right, up, down, forward, backward;
-	int mode = 0;
-	float roughness = 0.9f;
-	float specular = 0.1f;
-	bool toggle = false;
 	
 	void update() {
 		float t = (float)(System::time() - startTime);
@@ -184,32 +202,23 @@ namespace {
 		
 
 		program->set();
-
-		/*
-		Set your uniforms for the light vector, the roughness and all further constants you encounter in the BRDF terms.
-		The BRDF itself should be implemented in the fragment shader.
-		*/
 		Graphics::setFloat3(lightLocation, light);
 		Graphics::setFloat3(eyeLocation, eye);
-		Graphics::setFloat(specLocation, specular);
-		Graphics::setFloat(roughnessLocation, roughness);
-		Graphics::setInt(modeLocation, mode);
 
-		// set the camera
-		// vec3(0, 2, -3), vec3(0, 2, 0)
-
-		V = mat4::lookAt(eye, globe, vec3(0, 1.0, 0));
-		//V = mat4::lookAt(eye, globe, vec3(0, 1, 0)); //rotation test, can be deleted
+		V = mat4::lookAt(eye, normalMapModel, vec3(0, 1.0, 0));
 		P = mat4::Perspective(90.0, (float)width / (float)height, 0.1f, 100);
 		Graphics::setMatrix(vLocation, V);
 		Graphics::setMatrix(pLocation, P);
 
-		// iterate the MeshObjects
+		// Set the light position
+		lightMesh->M = Kore::mat4::Translation(light.x(), light.y(), light.z());
+
 		MeshObject** current = &objects[0];
 		while (*current != nullptr) {
-			// set the model matrix
+			// Set the model matrix
 			Graphics::setMatrix(mLocation, (*current)->M);
 
+			// Render the object
 			(*current)->render(tex, normalMapTex);
 			++current;
 		}
@@ -236,46 +245,6 @@ namespace {
 		}
 		else if (code == Key_S) {
 			down = true;
-		}
-		else if (code == Key_B) {
-			mode = 0;
-			std::cout << "Complete BRDF" << std::endl;
-		}
-		else if (code == Key_F) {
-			mode = 1;
-			std::cout << "Schlick's Fresnel approximation" << std::endl;
-		}
-		else if (code == Key_D) {
-			mode = 2;
-			std::cout << "Trowbridge-Reitz normal distribution term" << std::endl;
-		}
-		else if (code == Key_G) {
-			mode = 3;
-			std::cout << "Cook and Torrance's geometry factor" << std::endl;
-		}
-		else if (code == Key_T) {
-			toggle = !toggle;
-		}
-		else if (code == Key_R) {
-			if (toggle) {
-				roughness = std::max(roughness - 0.1f, 0.0f);
-			}
-			else {
-				roughness = std::min(roughness + 0.1f, 1.0f);
-			}
-			std::cout << "Roughness: " << roughness << std::endl;
-		}
-		else if (code == Key_E) {
-			if (toggle) {
-				specular = std::max(specular - 0.1f, 0.0f);
-			}
-			else {
-				specular = std::min(specular + 0.1f, 1.0f);
-			}
-			std::cout << "Specular: " << specular << std::endl;
-		}
-		else if (code == Key_Space) {
-			std::cout << "hi" << std::endl;
 		}
 	}
 	
@@ -339,36 +308,29 @@ namespace {
 		mLocation = program->getConstantLocation("M");
 		lightLocation = program->getConstantLocation("light");
 		eyeLocation = program->getConstantLocation("eye");
-		specLocation = program->getConstantLocation("spec");
-		roughnessLocation = program->getConstantLocation("roughness");
-		modeLocation = program->getConstantLocation("mode");
-		//@@TODO: Remove light pos
-		//@@TODO: Actually add normal map texture
+
 		objects[0] = new MeshObject("box.obj", "199.jpg", "199_norm.jpg", structure, 1.0f);
-		objects[0]->M = mat4::Translation(globe.x(), globe.y(), globe.z());
-		//objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, 0.3f);
-		//objects[1]->M = mat4::Translation(light.x(), light.y(), light.z());
+		// objects[0] = new MeshObject("Ball_split.obj", "199.jpg", "199_norm.jpg", structure, 1.0f);
+		//objects[0] = new MeshObject("cylinder.obj", "199.jpg", "normal.bmp", structure, 1.0f);
+
+		objects[0]->M = mat4::Translation(normalMapModel.x(), normalMapModel.y(), normalMapModel.z());
+
+		lightMesh = objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, 0.3f);
+		lightMesh->M = mat4::Translation(light.x(), light.y(), light.z());
 
 		Graphics::setRenderState(DepthTest, true);
 		Graphics::setRenderState(DepthTestCompare, ZCompareLess);
+		Graphics::setRenderState(DepthWrite, true);
 
 		Graphics::setRenderState(BackfaceCulling, true);
 
-		Graphics::setRenderState(DepthWrite, true);
 
 		Graphics::setTextureAddressing(tex, Kore::U, Repeat);
 		Graphics::setTextureAddressing(tex, Kore::V, Repeat);
-		
-		std::cout << "Showing complete BRDF" << std::endl;
-		std::cout << "Roughness: " << roughness << std::endl;
-		std::cout << "Specular: " << specular << std::endl;
-
-		// eye = vec3(0, 2, -3);
 	}
 }
 
 int kore(int argc, char** argv) {
-	// @@TODO: Remove SimpleGraphics?
 	Kore::System::setName("TUD Game Technology - ");
 	Kore::System::setup();
 	Kore::WindowOptions options;
