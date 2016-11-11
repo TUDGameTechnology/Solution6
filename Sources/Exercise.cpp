@@ -47,7 +47,6 @@ public:
 		vertexShader = new Shader(vs.readAll(), vs.size(), VertexShader);
 		fragmentShader = new Shader(fs.readAll(), fs.size(), FragmentShader);
 
-
 		program = new Program;
 		program->setVertexShader(vertexShader);
 		program->setFragmentShader(fragmentShader);
@@ -89,7 +88,7 @@ public:
 		: ShaderProgram(vsFile, fsFile, structure)
 	{
 		lightLocation = program->getConstantLocation("light");
-		eyeLocation = program->getConstantLocation("eye");
+		// eyeLocation = program->getConstantLocation("eye");
 		tex = program->getTextureUnit("tex");
 		normalMapTex = program->getTextureUnit("normalMap");
 
@@ -412,7 +411,7 @@ private:
 		ShaderProgram* pacManProgram = new ShaderProgram_PacMan("pacman.vert", "pacman.frag", structure);
 
 		objects[0] = new MeshObject("box.obj", "199.jpg", "199_norm.jpg", structure, normalMappingProgram, 1.0f);
-		objects[0]->M = mat4::Translation(2.0f, 0.0f, 0.0f);
+		objects[0]->M = mat4::Translation(0.0f, 0.0f, 0.0f);
 
 		lightMesh = objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, normalMappingProgram, 0.3f);
 		lightMesh->M = mat4::Translation(sceneParameters.light.x(), sceneParameters.light.y(), sceneParameters.light.z());

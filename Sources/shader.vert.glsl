@@ -15,7 +15,7 @@ uniform mat4 M;
 // Light position in world space
 uniform vec3 light;
 // Camera position in world space
-uniform vec3 eye;
+// uniform vec3 eye;
 
 // Position in world space
 varying vec3 position;
@@ -70,7 +70,7 @@ void kore() {
 		vertexTangent_cameraspace,
 		vertexBitangent_cameraspace,
 		vertexNormal_cameraspace	
-	)); // You can use dot products instead of building this matrix and transposing it. See References for details.
+	)); 
 
 	light_tangentspace = TBN * LightDirection_cameraspace;
 	eye_tangentspace =  TBN * EyeDirection_cameraspace;
