@@ -66,5 +66,4 @@ void kore(){
 		// Specular : reflective highlight, like a mirror
 		MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5.0) / (distance * distance);
 	gl_FragColor = vec4(color, 1.0);
-
 }

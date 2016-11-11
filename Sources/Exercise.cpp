@@ -12,13 +12,160 @@
 
 using namespace Kore;
 
+namespace {
+
+struct SceneParameters {
+	// The view projection matrix aka the camera
+	mat4 P;
+	mat4 V;
+
+	// Position of the camera in world space
+	vec3 eye = vec3(0, 0, -3);
+
+	// Position of the light in world space
+	vec3 light;
+
+	// Current time
+	float time;
+
+	// PacMan parameters:
+	float openAngle = 146.0f;
+	float closeAngle = 180.0f;
+	float duration = 0.5f;
+};
+
+SceneParameters sceneParameters;
+
+class ShaderProgram {
+
+public:
+	ShaderProgram(const char* vsFile, const char* fsFile, VertexStructure& structure)
+	{
+		// Load and link the shaders
+		FileReader vs(vsFile);
+		FileReader fs(fsFile);
+		vertexShader = new Shader(vs.readAll(), vs.size(), VertexShader);
+		fragmentShader = new Shader(fs.readAll(), fs.size(), FragmentShader);
+
+
+		program = new Program;
+		program->setVertexShader(vertexShader);
+		program->setFragmentShader(fragmentShader);
+		program->link(structure);
+
+		pLocation = program->getConstantLocation("P");
+		vLocation = program->getConstantLocation("V");
+		mLocation = program->getConstantLocation("M");
+	}
+
+	// Update this program from the scene parameters
+	virtual void Set(const SceneParameters& parameters, const mat4& M, Texture* diffuse = nullptr, Texture* normalMap = nullptr)
+	{
+		program->set();
+		Graphics::setMatrix(mLocation, M);
+		Graphics::setMatrix(vLocation, parameters.V);
+		Graphics::setMatrix(pLocation, parameters.P);
+	}
+
+
+protected:
+
+	Shader* vertexShader;
+	Shader* fragmentShader;
+	Program* program;
+
+	// Uniform locations - add more as you see fit
+	ConstantLocation pLocation;
+	ConstantLocation vLocation;
+	ConstantLocation mLocation;
+};
+
+
+class ShaderProgram_NormalMap : public ShaderProgram {
+	
+public:
+
+	ShaderProgram_NormalMap(const char* vsFile, const char* fsFile, VertexStructure& structure)
+		: ShaderProgram(vsFile, fsFile, structure)
+	{
+		lightLocation = program->getConstantLocation("light");
+		eyeLocation = program->getConstantLocation("eye");
+		tex = program->getTextureUnit("tex");
+		normalMapTex = program->getTextureUnit("normalMap");
+
+		Graphics::setTextureAddressing(tex, Kore::U, Repeat);
+		Graphics::setTextureAddressing(tex, Kore::V, Repeat);
+	}
+
+	virtual void Set(const SceneParameters& parameters, const mat4& M, Texture* diffuse, Texture* normalMap) override
+	{
+		ShaderProgram::Set(parameters, M);
+		Graphics::setTexture(tex, diffuse);
+		Graphics::setTexture(normalMapTex, normalMap);
+		Graphics::setFloat3(lightLocation, parameters.light);
+		Graphics::setFloat3(eyeLocation, parameters.eye);
+	}
+
+
+protected:
+
+	// Texture units
+	TextureUnit tex;
+	TextureUnit normalMapTex;
+
+	// Constant locations
+	ConstantLocation lightLocation;
+	ConstantLocation eyeLocation;
+};
+
+
+class ShaderProgram_PacMan : public ShaderProgram {
+
+public:
+
+	ShaderProgram_PacMan(const char* vsFile, const char* fsFile, VertexStructure& structure)
+		: ShaderProgram(vsFile, fsFile, structure)
+	{
+		timeLocation = program->getConstantLocation("time");
+		durationLocation = program->getConstantLocation("duration");
+		openAngleLocation = program->getConstantLocation("openAngle");
+		closeAngleLocation = program->getConstantLocation("closeAngle");
+	}
+
+	void Set(const SceneParameters& parameters, const mat4& M, Texture* diffuse, Texture* normalMap) override
+	{
+		ShaderProgram::Set(parameters, M);
+		Graphics::setFloat(timeLocation, parameters.time);
+		Graphics::setFloat(durationLocation, parameters.duration);
+		Graphics::setFloat(openAngleLocation, parameters.openAngle);
+		Graphics::setFloat(closeAngleLocation, parameters.closeAngle);
+	}
+
+
+protected:
+
+	// Constant locations
+	ConstantLocation timeLocation;
+	ConstantLocation durationLocation;
+	ConstantLocation openAngleLocation;
+	ConstantLocation closeAngleLocation;
+};
+
 class MeshObject {
 public:
 
-	MeshObject(const char* meshFile, const char* textureFile, const char* normalMapFile, const VertexStructure& structure, float scale = 1.0f) {
+	MeshObject(const char* meshFile, const char* textureFile, const char* normalMapFile, const VertexStructure& structure, ShaderProgram* shaderProgram, float scale = 1.0f)
+		: shaderProgram(shaderProgram), image(nullptr), normalMap(nullptr)
+	{
 		mesh = loadObj(meshFile);
-		image = new Texture(textureFile);
-		normalMap = new Texture(normalMapFile);
+		if (textureFile)
+		{
+			image = new Texture(textureFile);
+		}
+		if (normalMapFile)
+		{
+			normalMap = new Texture(normalMapFile);
+		}
 
 		vertexBuffer = new VertexBuffer(mesh->numVertices, structure, 0);
 		float* vertices = vertexBuffer->lock();
@@ -105,9 +252,8 @@ public:
 		M = mat4::Identity();
 	}
 
-	void render(TextureUnit tex, TextureUnit normalMapTex) {
-		Graphics::setTexture(tex, image);
-		Graphics::setTexture(normalMapTex, normalMap);
+	void render() {
+		shaderProgram->Set(sceneParameters, M, image, normalMap);
 		Graphics::setVertexBuffer(*vertexBuffer);
 		Graphics::setIndexBuffer(*indexBuffer);
 		Graphics::drawIndexedVertices();
@@ -122,46 +268,22 @@ private:
 	Mesh* mesh;
 	Texture* image;
 	Texture* normalMap;
+	ShaderProgram* shaderProgram;
 };
 
-namespace {
 	const int width = 512;
 	const int height = 512;
 	double startTime;
-	Shader* vertexShader;
-	Shader* fragmentShader;
-	Program* program;
 
 	// null terminated array of MeshObject pointers
 	MeshObject* objects[] = { nullptr, nullptr, nullptr, nullptr, nullptr };
 	MeshObject* lightMesh = nullptr;
-
-	// The view projection matrix aka the camera
-	mat4 P;
-	mat4 V;
-
-	// Texture units
-	TextureUnit tex;
-	TextureUnit normalMapTex;
-
-	// Uniform locations - add more as you see fit
-	ConstantLocation pLocation;
-	ConstantLocation vLocation;
-	ConstantLocation mLocation;
-	ConstantLocation lightLocation;
-	ConstantLocation eyeLocation;
-
-	// Position of the camera in world space
-	vec3 eye = vec3(0, 0, -3);
 
 	// Position of the mesh to use for normal mapping
 	vec3 normalMapModel = vec3(0, 0.0, 0.0);
 
 	// Initial position of the light
 	vec3 lightStart = vec3(0, 1.95f, 3.0f);
-
-	// Position of the light in world space
-	vec3 light = lightStart;
 
 	// Rotation rate of the light
 	float lightRotationRate = 1.0f;
@@ -171,55 +293,47 @@ namespace {
 	
 	void update() {
 		float t = (float)(System::time() - startTime);
+		sceneParameters.time = t;
 		Kore::Audio::update();
 
 		// Animate the light point
 		mat3 rotation = mat3::RotationY(t * lightRotationRate);
-		light = rotation * lightStart;
+		sceneParameters.light = rotation * lightStart;
 
 		const float speed = 0.05f;
 		if (left) {
-			eye.x() -= speed;
+			sceneParameters.eye.x() -= speed;
 		}
 		if (right) {
-			eye.x() += speed;
+			sceneParameters.eye.x() += speed;
 		}
 		if (forward) {
-			eye.z() += speed;
+			sceneParameters.eye.z() += speed;
 		}
 		if (backward) {
-			eye.z() -= speed;
+			sceneParameters.eye.z() -= speed;
 		}
 		if (up) {
-			eye.y() += speed;
+			sceneParameters.eye.y() += speed;
 		}
 		if (down) {
-			eye.y() -= speed;
+			sceneParameters.eye.y() -= speed;
 		}
 		
 		Graphics::begin();
 		Graphics::clear(Graphics::ClearColorFlag | Graphics::ClearDepthFlag, 0xff000000, 1000.0f);
 		
 
-		program->set();
-		Graphics::setFloat3(lightLocation, light);
-		Graphics::setFloat3(eyeLocation, eye);
-
-		V = mat4::lookAt(eye, normalMapModel, vec3(0, 1.0, 0));
-		P = mat4::Perspective(90.0, (float)width / (float)height, 0.1f, 100);
-		Graphics::setMatrix(vLocation, V);
-		Graphics::setMatrix(pLocation, P);
+		sceneParameters.V = mat4::lookAt(sceneParameters.eye, normalMapModel, vec3(0, 1.0, 0));
+		sceneParameters.P = mat4::Perspective(90.0, (float)width / (float)height, 0.1f, 100);
 
 		// Set the light position
-		lightMesh->M = Kore::mat4::Translation(light.x(), light.y(), light.z());
+		lightMesh->M = Kore::mat4::Translation(sceneParameters.light.x(), sceneParameters.light.y(), sceneParameters.light.z());
 
 		MeshObject** current = &objects[0];
 		while (*current != nullptr) {
-			// Set the model matrix
-			Graphics::setMatrix(mLocation, (*current)->M);
-
 			// Render the object
-			(*current)->render(tex, normalMapTex);
+			(*current)->render();
 			++current;
 		}
 
@@ -282,11 +396,6 @@ namespace {
 	}
 
 	void init() {
-		FileReader vs("shader.vert");
-		FileReader fs("shader.frag");
-		vertexShader = new Shader(vs.readAll(), vs.size(), VertexShader);
-		fragmentShader = new Shader(fs.readAll(), fs.size(), FragmentShader);
-
 		// This defines the structure of your Vertex Buffer
 		VertexStructure structure;
 		structure.add("pos", Float3VertexData);
@@ -296,27 +405,20 @@ namespace {
 		structure.add("tangent", Float3VertexData);
 		structure.add("bitangent", Float3VertexData);
 
-		program = new Program;
-		program->setVertexShader(vertexShader);
-		program->setFragmentShader(fragmentShader);
-		program->link(structure);
+		// Set up the normal mapping shader
+		ShaderProgram* normalMappingProgram = new ShaderProgram_NormalMap("shader.vert", "shader.frag", structure);
 
-		tex = program->getTextureUnit("tex");
-		normalMapTex = program->getTextureUnit("normalMap");
-		pLocation = program->getConstantLocation("P");
-		vLocation = program->getConstantLocation("V");
-		mLocation = program->getConstantLocation("M");
-		lightLocation = program->getConstantLocation("light");
-		eyeLocation = program->getConstantLocation("eye");
+		// Set up the pacman shader
+		ShaderProgram* pacManProgram = new ShaderProgram_PacMan("pacman.vert", "pacman.frag", structure);
 
-		objects[0] = new MeshObject("box.obj", "199.jpg", "199_norm.jpg", structure, 1.0f);
-		// objects[0] = new MeshObject("Ball_split.obj", "199.jpg", "199_norm.jpg", structure, 1.0f);
-		//objects[0] = new MeshObject("cylinder.obj", "199.jpg", "normal.bmp", structure, 1.0f);
+		objects[0] = new MeshObject("box.obj", "199.jpg", "199_norm.jpg", structure, normalMappingProgram, 1.0f);
+		objects[0]->M = mat4::Translation(2.0f, 0.0f, 0.0f);
 
-		objects[0]->M = mat4::Translation(normalMapModel.x(), normalMapModel.y(), normalMapModel.z());
+		lightMesh = objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, normalMappingProgram, 0.3f);
+		lightMesh->M = mat4::Translation(sceneParameters.light.x(), sceneParameters.light.y(), sceneParameters.light.z());
 
-		lightMesh = objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, 0.3f);
-		lightMesh->M = mat4::Translation(light.x(), light.y(), light.z());
+		objects[2] = new MeshObject("PacMan.obj", nullptr, nullptr, structure, pacManProgram);
+		objects[2]->M = mat4::Translation(-2.0f, 0.0f, 0.0f) * mat4::RotationZ(Kore::pi);
 
 		Graphics::setRenderState(DepthTest, true);
 		Graphics::setRenderState(DepthTestCompare, ZCompareLess);
@@ -324,9 +426,6 @@ namespace {
 
 		Graphics::setRenderState(BackfaceCulling, true);
 
-
-		Graphics::setTextureAddressing(tex, Kore::U, Repeat);
-		Graphics::setTextureAddressing(tex, Kore::V, Repeat);
 	}
 }
 
