@@ -1,5 +1,5 @@
 #ifdef GL_ES
-precision mediump float;
+precision highp float;
 #endif
 
 // Textures for diffuse and normal map
@@ -19,11 +19,14 @@ varying vec2 texCoord;
 varying vec3 light_tangentspace;
 varying vec3 eye_tangentspace;
 
+// Distance between the light and the current point. For the DirectX backend, we need to compute this in the vertex shader, if not, it will get a wrong value
+varying float lightDistance;
+
 void kore(){
 
 	// Color and intensity of the light
 	vec3 LightColor = vec3(1,1,1);
-	float LightPower = 10.0;
+	float LightPower = 5.0;
 	
 	// Material properties
 	vec3 MaterialDiffuseColor = texture2D( tex, texCoord).rgb;
@@ -35,7 +38,7 @@ void kore(){
 	vec3 TextureNormal_tangentspace = normalize(texture2D( normalMap, texCoord ).rgb*2.0 - 1.0);
 	
 	// Distance to the light
-	float distance = length( light - position );
+	// float lightDistance = length( light - position );
 
 	// Normal of the computed fragment, in camera space
 	vec3 n = TextureNormal_tangentspace;
@@ -57,13 +60,18 @@ void kore(){
 	//  - Looking into the reflection -> 1
 	//  - Looking elsewhere -> < 1
 	float cosAlpha = clamp( dot( E,R ), 0.0,1.0 );
-	
+
+	float radius = 5.0;
+	float a = 2.0 / radius;
+	float b = 1.0 / (radius * radius);
+	float attenuation = 1.0 / (1.0 + a*lightDistance + b*lightDistance*lightDistance);
+
 	vec3 color = 
 		// Ambient : simulates indirect lighting
-		// MaterialAmbientColor +
+		MaterialAmbientColor +
 		// Diffuse : "color" of the object
-		MaterialDiffuseColor * LightColor * LightPower * cosTheta / (distance * distance) +
+		MaterialDiffuseColor * LightColor * LightPower * cosTheta * attenuation + 
 		// Specular : reflective highlight, like a mirror
-		MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5.0) / (distance * distance);
+		MaterialSpecularColor * LightColor * LightPower * pow(cosAlpha,5.0) * attenuation;
 	gl_FragColor = vec4(color, 1.0);
 }

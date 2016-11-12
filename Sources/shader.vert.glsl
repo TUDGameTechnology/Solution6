@@ -26,6 +26,7 @@ varying vec2 texCoord;
 varying vec3 light_tangentspace;
 varying vec3 eye_tangentspace;
 
+varying float lightDistance;
 
 highp mat3 mytranspose(in highp mat3 inMatrix) {
 
@@ -47,6 +48,8 @@ void kore() {
 	
 	// Position of the vertex, in worldspace : M * position
 	position = (M * vec4(pos,1)).xyz;
+
+	lightDistance = length(light - position);
 	
 	// Vector that goes from the vertex to the camera, in camera space.
 	// In camera space, the camera is at the origin (0,0,0).

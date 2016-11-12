@@ -88,7 +88,7 @@ public:
 		: ShaderProgram(vsFile, fsFile, structure)
 	{
 		lightLocation = program->getConstantLocation("light");
-		// eyeLocation = program->getConstantLocation("eye");
+		eyeLocation = program->getConstantLocation("eye");
 		tex = program->getTextureUnit("tex");
 		normalMapTex = program->getTextureUnit("normalMap");
 
@@ -279,7 +279,7 @@ private:
 	MeshObject* lightMesh = nullptr;
 
 	// Position of the mesh to use for normal mapping
-	vec3 normalMapModel = vec3(0, 0.0, 0.0);
+	vec3 normalMapModel = vec3(2.0, 0.0, 0.0);
 
 	// Initial position of the light
 	vec3 lightStart = vec3(0, 1.95f, 3.0f);
@@ -297,7 +297,7 @@ private:
 
 		// Animate the light point
 		mat3 rotation = mat3::RotationY(t * lightRotationRate);
-		sceneParameters.light = rotation * lightStart;
+		sceneParameters.light = rotation * lightStart + normalMapModel;
 
 		const float speed = 0.05f;
 		if (left) {
@@ -323,7 +323,7 @@ private:
 		Graphics::clear(Graphics::ClearColorFlag | Graphics::ClearDepthFlag, 0xff000000, 1000.0f);
 		
 
-		sceneParameters.V = mat4::lookAt(sceneParameters.eye, normalMapModel, vec3(0, 1.0, 0));
+		sceneParameters.V = mat4::lookAt(sceneParameters.eye, vec3(0.0, 0.0, 0.0), vec3(0, 1.0, 0));
 		sceneParameters.P = mat4::Perspective(90.0, (float)width / (float)height, 0.1f, 100);
 
 		// Set the light position
@@ -411,7 +411,7 @@ private:
 		ShaderProgram* pacManProgram = new ShaderProgram_PacMan("pacman.vert", "pacman.frag", structure);
 
 		objects[0] = new MeshObject("box.obj", "199.jpg", "199_norm.jpg", structure, normalMappingProgram, 1.0f);
-		objects[0]->M = mat4::Translation(0.0f, 0.0f, 0.0f);
+		objects[0]->M = mat4::Translation(normalMapModel.x(), normalMapModel.y(), normalMapModel.z());
 
 		lightMesh = objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, normalMappingProgram, 0.3f);
 		lightMesh->M = mat4::Translation(sceneParameters.light.x(), sceneParameters.light.y(), sceneParameters.light.z());
