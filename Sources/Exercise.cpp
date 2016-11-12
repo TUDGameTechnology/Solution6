@@ -217,6 +217,10 @@ public:
 			vec2 deltaUV1 = uv2 - uv1;
 			vec2 deltaUV2 = uv3 - uv1;
 
+			/************************************************************************/
+			/* Exercise P6.1 a): Use deltaPos1/2 and deltaUV1/2 to calculate the     /
+			 * tangent and bitangent vectors                                         /
+			/************************************************************************/
 			float r = 1.0f / (deltaUV1.x() * deltaUV2.y() - deltaUV1.y() * deltaUV2.x());
 			vec3 normal(vData1[5], vData1[6], vData1[7]);
 			vec3 tangent = (deltaPos1 * deltaUV2.y() - deltaPos2 * deltaUV1.y())*r;

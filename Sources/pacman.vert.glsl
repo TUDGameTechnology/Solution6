@@ -10,7 +10,7 @@ uniform mat4 M;
 //The time of the frame
 uniform float time;
 
-//Animation parameters
+// Add animation parameters you need here
 uniform float duration;
 uniform float closeAngle;
 uniform float openAngle;
@@ -21,6 +21,12 @@ void kore() {
 
 	// Don't remove these dummy calculations when working with DirectX, otherwise, the program will not run since the attributes are optimized away
 	vec3 dontremoveme = nor; vec2 meneither = tex; dontremoveme = binormal; dontremoveme = tangent;
+
+
+	/************************************************************************/
+	/* Exercise P6.2: Implement the characteristic PacMan eating animation   /
+	 * here. See the video on the website for reference.                     /
+	/************************************************************************/
 
     // Calculate the angle of this vertex
     float l = length(vec2(pos.x, pos.y));

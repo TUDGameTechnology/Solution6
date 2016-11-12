@@ -35,6 +35,10 @@ void kore(){
 	vec3 MaterialSpecularColor = vec3(1.0, 1.0, 1.0);
 
 	// Normal from the normal map
+	/************************************************************************/
+	/* Exercise P6.1 b): Extract the normal from the normal map.             /
+	 * For good measure, you can normalize them again                        /
+	/************************************************************************/
 	vec3 TextureNormal_tangentspace = normalize(texture2D( normalMap, texCoord ).rgb*2.0 - 1.0);
 	
 	// Distance to the light
