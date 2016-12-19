@@ -414,7 +414,7 @@ private:
 		// Set up the pacman shader
 		ShaderProgram* pacManProgram = new ShaderProgram_PacMan("pacman.vert", "pacman.frag", structure);
 
-		objects[0] = new MeshObject("box.obj", "199.jpg", "199_norm.jpg", structure, normalMappingProgram, 1.0f);
+		objects[0] = new MeshObject("box.obj", "199.JPG", "199_norm.JPG", structure, normalMappingProgram, 1.0f);
 		objects[0]->M = mat4::Translation(normalMapModel.x(), normalMapModel.y(), normalMapModel.z());
 
 		lightMesh = objects[1] = new MeshObject("ball.obj", "light_tex.png", "light_tex.png", structure, normalMappingProgram, 0.3f);
