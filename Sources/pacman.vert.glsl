@@ -1,8 +1,10 @@
-attribute vec3 pos;
-attribute vec2 tex;
-attribute vec3 nor;
-attribute vec3 binormal;
-attribute vec3 tangent;
+#version 450
+
+in vec3 pos;
+in vec2 tex;
+in vec3 nor;
+in vec3 binormal;
+in vec3 tangent;
 uniform mat4 V;
 uniform mat4 P;
 uniform mat4 M;
@@ -11,13 +13,14 @@ uniform mat4 M;
 uniform float time;
 
 // Add animation parameters you need here
+// See the comments in the SceneParameters and ShaderProgram structs/classes for how to add them on the CPU side
 uniform float duration;
 uniform float closeAngle;
 uniform float openAngle;
 
 #define M_PI 3.1415926535897932384626433832795
 
-void kore() {
+void main() {
 
 	// Don't remove these dummy calculations when working with DirectX, otherwise, the program will not run since the attributes are optimized away
 	vec3 dontremoveme = nor; vec2 meneither = tex; dontremoveme = binormal; dontremoveme = tangent;

@@ -1,11 +1,13 @@
+#version 450
+
 // Position in model space
-attribute vec3 pos;
+in vec3 pos;
 // Texture coordinate
-attribute vec2 tex;
+in vec2 tex;
 // Normal, tangent, bitangent
-attribute vec3 nor;
-attribute vec3 tangent;
-attribute vec3 bitangent;
+in vec3 nor;
+in vec3 tangent;
+in vec3 bitangent;
 
 // Projection, view and model matrices
 uniform mat4 P;
@@ -18,15 +20,15 @@ uniform vec3 light;
 // uniform vec3 eye;
 
 // Position in world space
-varying vec3 position;
+out vec3 position;
 
 // Texture coordinate
-varying vec2 texCoord;
+out vec2 texCoord;
 
-varying vec3 light_tangentspace;
-varying vec3 eye_tangentspace;
+out vec3 light_tangentspace;
+out vec3 eye_tangentspace;
 
-varying float lightDistance;
+out float lightDistance;
 
 highp mat3 mytranspose(in highp mat3 inMatrix) {
 
@@ -40,7 +42,7 @@ highp mat3 mytranspose(in highp mat3 inMatrix) {
     return outMatrix;
 }
 
-void kore() {
+void main() {
 
 	// Output position of the vertex, in clip space : MVP * position
 	mat4 MVP = P * V * M;
