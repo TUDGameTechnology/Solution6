@@ -5,10 +5,12 @@
 #include <Kore/System.h>
 #include <Kore/Input/Keyboard.h>
 #include <Kore/Input/Mouse.h>
-#include <Kore/Audio/Mixer.h>
-#include <Kore/Graphics/Image.h>
-#include <Kore/Graphics/Graphics.h>
+#include <Kore/Graphics4/Graphics.h>
+
+#include <Kore/Graphics4/PipelineState.h>
+
 #include "ObjLoader.h"
+#include "Memory.h"
 
 using namespace Kore;
 
@@ -39,82 +41,85 @@ SceneParameters sceneParameters;
 class ShaderProgram {
 
 public:
-	ShaderProgram(const char* vsFile, const char* fsFile, VertexStructure& structure)
+	ShaderProgram(const char* vsFile, const char* fsFile, Graphics4::VertexStructure& structure)
 	{
 		// Load and link the shaders
 		FileReader vs(vsFile);
 		FileReader fs(fsFile);
-		vertexShader = new Shader(vs.readAll(), vs.size(), VertexShader);
-		fragmentShader = new Shader(fs.readAll(), fs.size(), FragmentShader);
-
-		program = new Program;
-		program->setVertexShader(vertexShader);
-		program->setFragmentShader(fragmentShader);
-		program->link(structure);
-
-		pLocation = program->getConstantLocation("P");
-		vLocation = program->getConstantLocation("V");
-		mLocation = program->getConstantLocation("M");
+		vertexShader = new Graphics4::Shader(vs.readAll(), vs.size(), Graphics4::VertexShader);
+		fragmentShader = new Graphics4::Shader(fs.readAll(), fs.size(), Graphics4::FragmentShader);
+		
+		pipeline = new Graphics4::PipelineState;
+		pipeline->depthWrite = true;
+		pipeline->depthMode = Graphics4::ZCompareLess;
+		pipeline->inputLayout[0] = &structure;
+		pipeline->inputLayout[1] = nullptr;
+		pipeline->vertexShader = vertexShader;
+		pipeline->fragmentShader = fragmentShader;
+		pipeline->compile();
+		
+		pLocation = pipeline->getConstantLocation("P");
+		vLocation = pipeline->getConstantLocation("V");
+		mLocation = pipeline->getConstantLocation("M");
 	}
 
 	// Update this program from the scene parameters
-	virtual void Set(const SceneParameters& parameters, const mat4& M, Texture* diffuse = nullptr, Texture* normalMap = nullptr)
+	virtual void Set(const SceneParameters& parameters, const mat4& M, Graphics4::Texture* diffuse = nullptr, Graphics4::Texture* normalMap = nullptr)
 	{
-		program->set();
-		Graphics::setMatrix(mLocation, M);
-		Graphics::setMatrix(vLocation, parameters.V);
-		Graphics::setMatrix(pLocation, parameters.P);
+		Graphics4::setPipeline(pipeline);
+		Graphics4::setMatrix(mLocation, M);
+		Graphics4::setMatrix(vLocation, parameters.V);
+		Graphics4::setMatrix(pLocation, parameters.P);
 	}
 
 
 protected:
-
-	Shader* vertexShader;
-	Shader* fragmentShader;
-	Program* program;
-
+	Graphics4::Shader* vertexShader;
+	Graphics4::Shader* fragmentShader;
+	Graphics4::PipelineState* pipeline;
+	
 	// Uniform locations - add more as you see fit
-	ConstantLocation pLocation;
-	ConstantLocation vLocation;
-	ConstantLocation mLocation;
+	Graphics4::ConstantLocation pLocation;
+	Graphics4::ConstantLocation vLocation;
+	Graphics4::ConstantLocation mLocation;
 };
 
 
 class ShaderProgram_NormalMap : public ShaderProgram {
-	
+		
 public:
-
-	ShaderProgram_NormalMap(const char* vsFile, const char* fsFile, VertexStructure& structure)
-		: ShaderProgram(vsFile, fsFile, structure)
+		
+	ShaderProgram_NormalMap(const char* vsFile, const char* fsFile, Graphics4::VertexStructure& structure)
+	: ShaderProgram(vsFile, fsFile, structure)
 	{
-		lightLocation = program->getConstantLocation("light");
-		eyeLocation = program->getConstantLocation("eye");
-		tex = program->getTextureUnit("tex");
-		normalMapTex = program->getTextureUnit("normalMap");
-
-		Graphics::setTextureAddressing(tex, Kore::U, Repeat);
-		Graphics::setTextureAddressing(tex, Kore::V, Repeat);
+		lightLocation = pipeline->getConstantLocation("light");
+//		eyeLocation = pipeline->getConstantLocation("eye");
+		tex = pipeline->getTextureUnit("tex");
+		normalMapTex = pipeline->getTextureUnit("normalMap");
+			
+		Graphics4::setTextureAddressing(tex, Graphics4::U, Graphics4::Repeat);
+		Graphics4::setTextureAddressing(tex, Graphics4::V, Graphics4::Repeat);
 	}
-
-	virtual void Set(const SceneParameters& parameters, const mat4& M, Texture* diffuse, Texture* normalMap) override
+		
+	virtual void Set(const SceneParameters& parameters, const mat4& M, Graphics4::Texture* diffuse, Graphics4::Texture* normalMap) override
 	{
 		ShaderProgram::Set(parameters, M);
-		Graphics::setTexture(tex, diffuse);
-		Graphics::setTexture(normalMapTex, normalMap);
-		Graphics::setFloat3(lightLocation, parameters.light);
-		Graphics::setFloat3(eyeLocation, parameters.eye);
+		Graphics4::setTexture(tex, diffuse);
+		Graphics4::setTexture(normalMapTex, normalMap);
+		Graphics4::setFloat3(lightLocation, parameters.light);
+//		Graphics4::setFloat3(eyeLocation, parameters.eye);
 	}
-
-
+		
+		
 protected:
-
+	
 	// Texture units
-	TextureUnit tex;
-	TextureUnit normalMapTex;
-
+	Graphics4::TextureUnit tex;
+	Graphics4::TextureUnit normalMapTex;
+		
 	// Constant locations
-	ConstantLocation lightLocation;
-	ConstantLocation eyeLocation;
+	Graphics4::ConstantLocation lightLocation;
+//	Graphics4::ConstantLocation eyeLocation;
 };
 
 
@@ -122,51 +127,51 @@ class ShaderProgram_PacMan : public ShaderProgram {
 
 public:
 
-	ShaderProgram_PacMan(const char* vsFile, const char* fsFile, VertexStructure& structure)
+	ShaderProgram_PacMan(const char* vsFile, const char* fsFile, Graphics4::VertexStructure& structure)
 		: ShaderProgram(vsFile, fsFile, structure)
 	{
-		timeLocation = program->getConstantLocation("time");
-		durationLocation = program->getConstantLocation("duration");
-		openAngleLocation = program->getConstantLocation("openAngle");
-		closeAngleLocation = program->getConstantLocation("closeAngle");
+		timeLocation = pipeline->getConstantLocation("time");
+		durationLocation = pipeline->getConstantLocation("duration");
+		openAngleLocation = pipeline->getConstantLocation("openAngle");
+		closeAngleLocation = pipeline->getConstantLocation("closeAngle");
 	}
 
-	void Set(const SceneParameters& parameters, const mat4& M, Texture* diffuse, Texture* normalMap) override
+	void Set(const SceneParameters& parameters, const mat4& M, Graphics4::Texture* diffuse, Graphics4::Texture* normalMap) override
 	{
 		ShaderProgram::Set(parameters, M);
-		Graphics::setFloat(timeLocation, parameters.time);
-		Graphics::setFloat(durationLocation, parameters.duration);
-		Graphics::setFloat(openAngleLocation, parameters.openAngle);
-		Graphics::setFloat(closeAngleLocation, parameters.closeAngle);
+		Graphics4::setFloat(timeLocation, parameters.time);
+		Graphics4::setFloat(durationLocation, parameters.duration);
+		Graphics4::setFloat(openAngleLocation, parameters.openAngle);
+		Graphics4::setFloat(closeAngleLocation, parameters.closeAngle);
 	}
 
 
 protected:
 
 	// Constant locations
-	ConstantLocation timeLocation;
-	ConstantLocation durationLocation;
-	ConstantLocation openAngleLocation;
-	ConstantLocation closeAngleLocation;
+	Graphics4::ConstantLocation timeLocation;
+	Graphics4::ConstantLocation durationLocation;
+	Graphics4::ConstantLocation openAngleLocation;
+	Graphics4::ConstantLocation closeAngleLocation;
 };
 
 class MeshObject {
 public:
 
-	MeshObject(const char* meshFile, const char* textureFile, const char* normalMapFile, const VertexStructure& structure, ShaderProgram* shaderProgram, float scale = 1.0f)
+	MeshObject(const char* meshFile, const char* textureFile, const char* normalMapFile, const Graphics4::VertexStructure& structure, ShaderProgram* shaderProgram, float scale = 1.0f)
 		: shaderProgram(shaderProgram), image(nullptr), normalMap(nullptr)
 	{
 		mesh = loadObj(meshFile);
 		if (textureFile)
 		{
-			image = new Texture(textureFile);
+			image = new Graphics4::Texture(textureFile);
 		}
 		if (normalMapFile)
 		{
-			normalMap = new Texture(normalMapFile);
+			normalMap = new Graphics4::Texture(normalMapFile);
 		}
 
-		vertexBuffer = new VertexBuffer(mesh->numVertices, structure, 0);
+		vertexBuffer = new Graphics4::VertexBuffer(mesh->numVertices, structure, 0);
 		float* vertices = vertexBuffer->lock();
 		int stride = 3 + 2 + 3 + 3 + 3;
 		int strideInFile = 3 + 2 + 3;
@@ -183,7 +188,7 @@ public:
 			v[7] = meshV[7];
 		}
 
-		indexBuffer = new IndexBuffer(mesh->numFaces * 3);
+		indexBuffer = new Graphics4::IndexBuffer(mesh->numFaces * 3);
 		int* indices = indexBuffer->lock();
 		for (int i = 0; i < mesh->numFaces * 3; i++) {
 			indices[i] = mesh->indices[i];
@@ -257,20 +262,20 @@ public:
 
 	void render() {
 		shaderProgram->Set(sceneParameters, M, image, normalMap);
-		Graphics::setVertexBuffer(*vertexBuffer);
-		Graphics::setIndexBuffer(*indexBuffer);
-		Graphics::drawIndexedVertices();
+		Graphics4::setVertexBuffer(*vertexBuffer);
+		Graphics4::setIndexBuffer(*indexBuffer);
+		Graphics4::drawIndexedVertices();
 	}
 
 	// Model matrix of this object
 	mat4 M;
 
 private:
-	VertexBuffer* vertexBuffer;
-	IndexBuffer* indexBuffer;
+	Graphics4::VertexBuffer* vertexBuffer;
+	Graphics4::IndexBuffer* indexBuffer;
 	Mesh* mesh;
-	Texture* image;
-	Texture* normalMap;
+	Graphics4::Texture* image;
+	Graphics4::Texture* normalMap;
 	ShaderProgram* shaderProgram;
 };
 
@@ -297,8 +302,7 @@ private:
 	void update() {
 		float t = (float)(System::time() - startTime);
 		sceneParameters.time = t;
-		Kore::Audio::update();
-
+		
 		// Animate the light point
 		mat3 rotation = mat3::RotationY(t * lightRotationRate);
 		sceneParameters.light = rotation * lightStart + normalMapModel;
@@ -323,10 +327,9 @@ private:
 			sceneParameters.eye.y() -= speed;
 		}
 		
-		Graphics::begin();
-		Graphics::clear(Graphics::ClearColorFlag | Graphics::ClearDepthFlag, 0xff000000, 1000.0f);
+		Graphics4::begin();
+		Graphics4::clear(Graphics4::ClearColorFlag | Graphics4::ClearDepthFlag, 0xff000000, 1000.0f);
 		
-
 		sceneParameters.V = mat4::lookAt(sceneParameters.eye, vec3(0.0, 0.0, 0.0), vec3(0, 1.0, 0));
 		sceneParameters.P = mat4::Perspective(90.0, (float)width / (float)height, 0.1f, 100);
 
@@ -340,48 +343,48 @@ private:
 			++current;
 		}
 
-		Graphics::end();
-		Graphics::swapBuffers();
+		Graphics4::end();
+		Graphics4::swapBuffers();
 	}
 
-	void keyDown(KeyCode code, wchar_t character) {
-		if (code == Key_Left) {
+	void keyDown(KeyCode code) {
+		if (code == KeyLeft) {
 			left = true;
 		}
-		else if (code == Key_Right) {
+		else if (code == KeyRight) {
 			right = true;
 		}
-		else if (code == Key_Up) {
+		else if (code == KeyUp) {
 			forward = true;
 		}
-		else if (code == Key_Down) {
+		else if (code == KeyDown) {
 			backward = true;
 		}
-		else if (code == Key_W) {
+		else if (code == KeyW) {
 			up = true;
 		}
-		else if (code == Key_S) {
+		else if (code == KeyS) {
 			down = true;
 		}
 	}
 	
-	void keyUp(KeyCode code, wchar_t character) {
-		if (code == Key_Left) {
+	void keyUp(KeyCode code) {
+		if (code == KeyLeft) {
 			left = false;
 		}
-		else if (code == Key_Right) {
+		else if (code == KeyRight) {
 			right = false;
 		}
-		else if (code == Key_Up) {
+		else if (code == KeyUp) {
 			forward = false;
 		}
-		else if (code == Key_Down) {
+		else if (code == KeyDown) {
 			backward = false;
 		}
-		else if (code == Key_W) {
+		else if (code == KeyW) {
 			up = false;
 		}
-		else if (code == Key_S) {
+		else if (code == KeyS) {
 			down = false;
 		}
 	}
@@ -399,14 +402,17 @@ private:
 	}
 
 	void init() {
+		Memory::init();
+		
 		// This defines the structure of your Vertex Buffer
-		VertexStructure structure;
-		structure.add("pos", Float3VertexData);
-		structure.add("tex", Float2VertexData);
-		structure.add("nor", Float3VertexData);
+		Graphics4::VertexStructure structure;
+		structure.add("pos", Graphics4::Float3VertexData);
+		structure.add("tex", Graphics4::Float2VertexData);
+		structure.add("nor", Graphics4::Float3VertexData);
+		
 		// Additional fields for tangent and bitangent
-		structure.add("tangent", Float3VertexData);
-		structure.add("bitangent", Float3VertexData);
+		structure.add("tangent", Graphics4::Float3VertexData);
+		structure.add("bitangent", Graphics4::Float3VertexData);
 
 		// Set up the normal mapping shader
 		ShaderProgram* normalMappingProgram = new ShaderProgram_NormalMap("shader.vert", "shader.frag", structure);
@@ -422,43 +428,17 @@ private:
 
 		objects[2] = new MeshObject("PacMan.obj", nullptr, nullptr, structure, pacManProgram);
 		objects[2]->M = mat4::Translation(-2.0f, 0.0f, 0.0f) * mat4::RotationZ(Kore::pi);
-
-		Graphics::setRenderState(DepthTest, true);
-		Graphics::setRenderState(DepthTestCompare, ZCompareLess);
-		Graphics::setRenderState(DepthWrite, true);
-
-		Graphics::setRenderState(BackfaceCulling, true);
-
 	}
 }
 
 int kore(int argc, char** argv) {
-	Kore::System::setName("TUD Game Technology - ");
-	Kore::System::setup();
-	Kore::WindowOptions options;
-	options.title = "Solution 6";
-	options.width = width;
-	options.height = height;
-	options.x = 100;
-	options.y = 100;
-	options.targetDisplay = -1;
-	options.mode = WindowModeWindow;
-	options.rendererOptions.depthBufferBits = 16;
-	options.rendererOptions.stencilBufferBits = 8;
-	options.rendererOptions.textureFormat = 0;
-	options.rendererOptions.antialiasing = 0;
-	Kore::System::initWindow(options);
+	Kore::System::init("Solution 6", width, height);
 
 	init();
 
 	Kore::System::setCallback(update);
 
-	Kore::Mixer::init();
-	Kore::Audio::init();
-
-
 	startTime = System::time();
-
 
 	Keyboard::the()->KeyDown = keyDown;
 	Keyboard::the()->KeyUp = keyUp;
