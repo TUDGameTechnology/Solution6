@@ -3,7 +3,7 @@
 in vec3 pos;
 in vec2 tex;
 in vec3 nor;
-in vec3 binormal;
+in vec3 bitangent;
 in vec3 tangent;
 uniform mat4 V;
 uniform mat4 P;
@@ -23,7 +23,7 @@ uniform float openAngle;
 void main() {
 
 	// Don't remove these dummy calculations when working with DirectX, otherwise, the program will not run since the attributes are optimized away
-	vec3 dontremoveme = nor; vec2 meneither = tex; dontremoveme = binormal; dontremoveme = tangent;
+	vec3 dontremoveme = nor; vec2 meneither = tex; dontremoveme = bitangent; dontremoveme = tangent;
 
 
 	/************************************************************************/
