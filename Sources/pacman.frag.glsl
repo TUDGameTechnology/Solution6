@@ -1,6 +1,6 @@
 #version 450
 
-uniform vec4 time;
+uniform float time;
 
 out vec4 frag;
 
